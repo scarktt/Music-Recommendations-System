@@ -1,6 +1,5 @@
 import argparse
 import json
-import math
 
 import pandas as pd
 import requests
@@ -63,7 +62,6 @@ def map_playlists_to_tabular(playlists: list):
     }
 
     playlists_df = pd.DataFrame(user_playlists)
-    # print(playlists_df)
     return playlists_df
 
 
@@ -85,7 +83,6 @@ def map_tracks_to_tabular(tracks: list):
 
     tracks_df = pd.DataFrame(user_tracks)
     tracks_df.drop_duplicates(subset=['name', 'id', 'artist'], inplace=True)
-    # print(tracks_df)
     return tracks_df
 
 
@@ -93,10 +90,6 @@ def extract(user:str, target_playlist:str):
     playlists_results = get_all_user_playlists()
 
     user_own_playlists = list(filter(lambda playlist: playlist['owner']['id'] == user, playlists_results))
-
-    playlist_df = map_playlists_to_tabular(user_own_playlists)
-
-    test_playlist = playlist_df.loc[playlist_df['name'] == target_playlist]
 
     user_tracks, target_tracks = [], []
     for playlist in user_own_playlists:
@@ -109,7 +102,10 @@ def extract(user:str, target_playlist:str):
 
     print(f'getting saved songs...')
     user_tracks += get_saved_tracks()
+    return target_tracks, user_tracks
 
+
+def transform(target_tracks:dict, user_tracks:dict):
     user_tracks_df = map_tracks_to_tabular(user_tracks)
     target_tracks_df = map_tracks_to_tabular(target_tracks)
 
@@ -125,7 +121,12 @@ def extract(user:str, target_playlist:str):
     target_df = target_tracks_df.merge(target_tracks_features_df, on=['id'])
     df.drop(['analysis_url', 'type', 'track_href', 'uri'], axis=1, inplace=True)
     target_df.drop(['analysis_url', 'type', 'track_href', 'uri'], axis=1, inplace=True)
-    return df, target_df
+    return target_df, df
+
+
+def process(target_tracks_df:pd.DataFrame, user_tracks_df:pd.DataFrame):
+    pass
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generates music recommendations based on 100% own saved music.')
@@ -133,10 +134,12 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--playlist', required=True, help='Spotify playlist name.')
     parser.add_argument('--dev', default=False, action='store_true', help='Uses a dev configuration to connect with spotify (default: False)')
     args = parser.parse_args()
-    dev = args.dev
-    user = args.user
-    playlist = args.playlist
+    dev, user, playlist = args.dev, args.user, args.playlist
 
-    df, target_df = extract(user, playlist)
-    print(f"{df}\n{target_df}")
+    raw_target_tracks, raw_user_tracks = extract(user, playlist)
+
+    target_tracks_df, user_tracks_df = transform(raw_target_tracks, raw_user_tracks)
+    print(f"{target_tracks_df}\n{user_tracks_df}")
+
+    process(target_tracks_df, user_tracks_df)
 
